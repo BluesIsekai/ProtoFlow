@@ -35,20 +35,42 @@ Http3ResultNative RunHttp3Request(const std::string& url, int timeoutMs) {
 #ifdef QUICHE_ENABLED
   const auto started = std::chrono::steady_clock::now();
 
+  // 🔥 Use LOWER idle timeout to prevent long hangs
+  const int effectiveTimeout = std::min(3000, std::max(500, timeoutMs));
+
   std::ostringstream command;
-  command << "quiche-client --no-verify --idle-timeout " << std::max(500, timeoutMs)
-          << " \"" << url << "\" > /dev/null 2>&1";
+  command << "quiche-client --no-verify "
+          << "--idle-timeout " << effectiveTimeout << " "
+          << "\"" << url << "\" > /dev/null 2>&1";
 
   const int code = std::system(command.str().c_str());
   const auto ended = std::chrono::steady_clock::now();
 
-  result.latency = std::max(1.0, ElapsedMs(started, ended));
-  result.handshake = std::max(1.0, result.latency * 0.35);
-  result.success = ExitCodeSuccess(code);
+  double latencyMs = std::max(1.0, ElapsedMs(started, ended));
+
+  // 🔥 Clamp insane values (prevents scoring distortion)
+  latencyMs = std::min(latencyMs, 3000.0);
+
+  result.latency = latencyMs;
+  result.handshake = std::max(1.0, latencyMs * 0.35);
+
+  bool success = ExitCodeSuccess(code);
+
+  // 🔥 CRITICAL FIX: treat very slow requests as failure
+  if (latencyMs > 2500) {
+    success = false;
+  }
+
+  result.success = success;
 
   if (!result.success) {
-    result.error = "quiche-client returned non-zero exit code";
+    if (!ExitCodeSuccess(code)) {
+      result.error = "quiche-client returned non-zero exit code";
+    } else {
+      result.error = "HTTP/3 too slow (treated as failure)";
+    }
   }
+
 #else
   (void)url;
   (void)timeoutMs;

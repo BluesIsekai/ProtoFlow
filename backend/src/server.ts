@@ -6,6 +6,7 @@ import { Prober } from "./prober";
 import { compareProtocols } from "./protocols";
 import { decideBestProtocol } from "./switcher";
 import { ControlState, OptimizerSnapshot } from "./types";
+import { routeRequest } from "./router/router";
 
 const PORT = Number(process.env.BACKEND_PORT ?? 4317);
 
@@ -43,6 +44,10 @@ class OptimizerEngine {
 
     getSnapshot(): OptimizerSnapshot | null {
         return this.latestSnapshot;
+    }
+
+    getProber(): Prober {
+        return this.prober;
     }
 
     getControlState(): ControlState {
@@ -142,7 +147,7 @@ class OptimizerEngine {
     }
 }
 
-const engine = new OptimizerEngine();
+export const engine = new OptimizerEngine();
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
@@ -171,6 +176,40 @@ app.get("/snapshot", (_req, res) => {
         });
     }
     res.json(snapshot);
+});
+
+app.post("/request", async (req, res) => {
+    try {
+        const { url, method, headers, body } = req.body;
+        if (!url) {
+            return res.status(400).json({ error: "Missing 'url' in body" });
+        }
+
+        const response = await routeRequest({
+            url,
+            method: method || "GET",
+            headers,
+            body: typeof body === "string" ? body : JSON.stringify(body)
+        });
+
+        // We can't easily serialize the entire Fetch Response stream back to Express.
+        // We'll read the body as text and return it.
+        const responseText = await response.text();
+        const responseHeaders: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+            responseHeaders[key] = value;
+        });
+
+        res.status(response.status).json({
+            protocol: responseHeaders["x-router-protocol"] || "unknown",
+            latencyMs: responseHeaders["x-router-latency"] || "unknown",
+            status: response.status,
+            headers: responseHeaders,
+            body: responseText
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // ---------- WEBSOCKET ----------
