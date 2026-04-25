@@ -119,6 +119,7 @@ class OptimizerEngine {
                 this.prober,
                 network,
                 this.latestSnapshot?.protocols,
+                simulationConfig
             );
             const decision = decideBestProtocol(protocols, network, this.control);
 
@@ -155,6 +156,8 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 app.use(cors());
 app.use(express.json());
 
+export let simulationConfig: any = null;
+
 // ---------- REST ----------
 app.get("/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
@@ -176,6 +179,15 @@ app.get("/snapshot", (_req, res) => {
         });
     }
     res.json(snapshot);
+});
+
+app.post("/simulate", (req, res) => {
+    if (Object.keys(req.body).length === 0) {
+        simulationConfig = null;
+    } else {
+        simulationConfig = req.body;
+    }
+    res.json({ ok: true, simulationConfig });
 });
 
 app.post("/request", async (req, res) => {

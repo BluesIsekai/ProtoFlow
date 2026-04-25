@@ -4,7 +4,7 @@ import { useWebSocket, type SocketConnectionStatus } from "../hooks/useWebSocket
 const API_BASE = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:4317";
 const SOCKET_URL = import.meta.env.VITE_BACKEND_WS_URL ?? "ws://localhost:4317/ws";
 const MAX_HISTORY = 50;
-const MAX_CHART_POINTS = 30;
+const MAX_CHART_POINTS = 50;
 
 type ProtocolName = "http2" | "http3" | "udp";
 

@@ -3,7 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Dashboard } from './pages/Dashboard';
 import { ProtocolAnalyzer } from './pages/ProtocolAnalyzer';
-import { NetworkMap } from './pages/NetworkMap';
+
 import { SecurityLogs } from './pages/SecurityLogs';
 import { SystemHealth } from './pages/SystemHealth';
 import { Settings } from './pages/Settings';
@@ -21,7 +21,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/analyzer" element={<ProtocolAnalyzer />} />
-              <Route path="/network-map" element={<NetworkMap />} />
+
               <Route path="/security-logs" element={<SecurityLogs />} />
               <Route path="/system-health" element={<SystemHealth />} />
               <Route path="/settings" element={<Settings />} />

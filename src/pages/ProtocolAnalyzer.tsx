@@ -12,6 +12,7 @@ const protocolLabel = {
 export const ProtocolAnalyzer = () => {
     const [isTesting, setIsTesting] = useState(false);
     const [isSwitching, setIsSwitching] = useState(false);
+    const [activeSimulation, setActiveSimulation] = useState<"latency" | "loss" | "stable" | null>(null);
     const previousBestRef = useRef<"http2" | "http3" | "udp" | null>(null);
 
     const { protocols, decision, protocolHistory, switchHistory, refreshSnapshot, connectionStatus } =
@@ -101,10 +102,37 @@ export const ProtocolAnalyzer = () => {
 
     const confidenceBarClass = confidence > 70 ? "bg-primary" : confidence >= 40 ? "bg-tertiary" : "bg-error";
 
+    const handleSimulationToggle = (type: "latency" | "loss" | "stable") => {
+        const nextActive = activeSimulation === type ? null : type;
+        setActiveSimulation(nextActive);
+        
+        let payload = {};
+        if (nextActive === "latency") payload = { latency: 300 };
+        else if (nextActive === "loss") payload = { loss: 0.05 };
+        else if (nextActive === "stable") payload = { latency: 50, jitter: 5, loss: 0 };
+
+        fetch("http://localhost:4317/simulate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        }).catch(console.error);
+    };
+
     const handleRunBenchmark = () => {
         setIsTesting(true);
-        void refreshSnapshot().finally(() => {
-            window.setTimeout(() => setIsTesting(false), 800);
+        let payload = {};
+        if (activeSimulation === "latency") payload = { latency: 300 };
+        else if (activeSimulation === "loss") payload = { loss: 0.05 };
+        else if (activeSimulation === "stable") payload = { latency: 50, jitter: 5, loss: 0 };
+
+        fetch("http://localhost:4317/simulate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        }).finally(() => {
+            void refreshSnapshot().finally(() => {
+                window.setTimeout(() => setIsTesting(false), 800);
+            });
         });
     };
 
@@ -228,24 +256,30 @@ export const ProtocolAnalyzer = () => {
                     </div>
                     <div className="space-y-4">
                         {/* Toggles */}
-                        <div className="flex items-center justify-between p-4 bg-surface-container-highest rounded-xl border border-outline-variant/10 hover:border-outline-variant/30 transition-colors cursor-pointer">
-                            <span className="text-sm lg:text-base font-medium">High Latency</span>
-                            <div className="w-10 h-5 bg-surface rounded-full relative p-1 transition-colors">
-                                <div className="w-3 h-3 bg-slate-400 rounded-full"></div>
+                        <div 
+                            onClick={() => handleSimulationToggle("latency")}
+                            className={`flex items-center justify-between p-4 bg-surface-container-highest rounded-xl cursor-pointer transition-colors ${activeSimulation === "latency" ? "border border-primary/30 shadow-[0_0_10px_rgba(0,173,181,0.1)]" : "border border-outline-variant/10 hover:border-outline-variant/30"}`}>
+                            <span className={`text-sm lg:text-base font-medium ${activeSimulation === "latency" ? "text-primary" : ""}`}>High Latency</span>
+                            <div className={`w-10 h-5 rounded-full relative p-1 transition-colors ${activeSimulation === "latency" ? "bg-primary/40" : "bg-surface"}`}>
+                                <div className={`w-3 h-3 rounded-full absolute ${activeSimulation === "latency" ? "bg-primary right-1" : "bg-slate-400"}`}></div>
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-4 bg-surface-container-highest rounded-xl border border-primary/30 shadow-[0_0_10px_rgba(0,173,181,0.1)] cursor-pointer">
-                            <span className="text-sm lg:text-base font-medium text-primary">Packet Loss (5%)</span>
-                            <div className="w-10 h-5 bg-primary/40 rounded-full relative p-1 transition-colors">
-                                <div className="w-3 h-3 bg-primary rounded-full absolute right-1"></div>
+                        <div 
+                            onClick={() => handleSimulationToggle("loss")}
+                            className={`flex items-center justify-between p-4 bg-surface-container-highest rounded-xl cursor-pointer transition-colors ${activeSimulation === "loss" ? "border border-primary/30 shadow-[0_0_10px_rgba(0,173,181,0.1)]" : "border border-outline-variant/10 hover:border-outline-variant/30"}`}>
+                            <span className={`text-sm lg:text-base font-medium ${activeSimulation === "loss" ? "text-primary" : ""}`}>Packet Loss (5%)</span>
+                            <div className={`w-10 h-5 rounded-full relative p-1 transition-colors ${activeSimulation === "loss" ? "bg-primary/40" : "bg-surface"}`}>
+                                <div className={`w-3 h-3 rounded-full absolute ${activeSimulation === "loss" ? "bg-primary right-1" : "bg-slate-400"}`}></div>
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-4 bg-surface-container-highest rounded-xl border border-outline-variant/10 hover:border-outline-variant/30 transition-colors cursor-pointer">
-                            <span className="text-sm lg:text-base font-medium">Stable Network</span>
-                            <div className="w-10 h-5 bg-surface rounded-full relative p-1 transition-colors">
-                                <div className="w-3 h-3 bg-slate-400 rounded-full"></div>
+                        <div 
+                            onClick={() => handleSimulationToggle("stable")}
+                            className={`flex items-center justify-between p-4 bg-surface-container-highest rounded-xl cursor-pointer transition-colors ${activeSimulation === "stable" ? "border border-primary/30 shadow-[0_0_10px_rgba(0,173,181,0.1)]" : "border border-outline-variant/10 hover:border-outline-variant/30"}`}>
+                            <span className={`text-sm lg:text-base font-medium ${activeSimulation === "stable" ? "text-primary" : ""}`}>Stable Network</span>
+                            <div className={`w-10 h-5 rounded-full relative p-1 transition-colors ${activeSimulation === "stable" ? "bg-primary/40" : "bg-surface"}`}>
+                                <div className={`w-3 h-3 rounded-full absolute ${activeSimulation === "stable" ? "bg-primary right-1" : "bg-slate-400"}`}></div>
                             </div>
                         </div>
                     </div>
@@ -352,7 +386,7 @@ export const ProtocolAnalyzer = () => {
                             <div className="w-3 h-3 rounded-full bg-primary/60 shadow-[0_0_5px_rgba(85,216,225,0.5)]"></div>
                         </div>
                         <div className="text-slate-500 uppercase tracking-widest text-[10px] font-bold">
-                            AI REASONING LOGS // KINETIC_SIGNAL_v4.2
+                            REASONING LOGS // LogicStream v4.2
                         </div>
                     </div>
                     <div className="space-y-2 opacity-90 leading-relaxed">

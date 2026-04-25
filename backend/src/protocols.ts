@@ -62,6 +62,52 @@ function sampleWithError(protocol: ProtocolSample["protocol"], error: string): P
     };
 }
 
+function normalize(metrics: ProtocolSample): ProtocolSample {
+    return {
+        ...metrics,
+        // latency must never be 0
+        latencyMs: Math.max(1, metrics.latencyMs || 1),
+
+        // clamp loss between 0-1
+        packetLoss: Math.min(Math.max(metrics.packetLoss || 0, 0), 1),
+
+        // 100% loss -> no throughput
+        throughputMbps:
+            (metrics.packetLoss || 0) >= 1
+                ? 0
+                : metrics.throughputMbps,
+    };
+}
+
+function applySimulation(real: ProtocolSample, sim?: any): ProtocolSample {
+    if (!sim) return normalize(real);
+
+    const latency =
+        sim.latency !== undefined
+            ? sim.latency
+            : real.latencyMs;
+
+    const loss =
+        sim.loss !== undefined
+            ? sim.loss
+            : 0;
+
+    const jitter =
+        sim.jitter !== undefined
+            ? sim.jitter
+            : (real.meta as any)?.jitterMs ?? 0;
+
+    const nextMeta = real.meta ? { ...real.meta } : {};
+    nextMeta.jitterMs = jitter;
+
+    return normalize({
+        ...real,
+        latencyMs: latency,
+        packetLoss: loss,
+        meta: nextMeta,
+    });
+}
+
 export async function benchmarkHttp2(urlRaw: string, timeoutMs = 2500): Promise<ProtocolSample> {
     const target = new URL(urlRaw);
     const authority = `${target.protocol}//${target.host}`;
@@ -142,6 +188,7 @@ export async function compareProtocols(
     prober: Prober,
     network: NetworkStats,
     previous?: ProtocolComparison,
+    simulationConfig?: any
 ): Promise<ProtocolComparison> {
     const [http2, http3Result, udpResult] = await Promise.all([
         benchmarkHttp2(targetUrl),
@@ -174,9 +221,13 @@ export async function compareProtocols(
         },
     };
 
+    const stabilizedHttp2 = stabilizeThroughput(http2, network, previous?.http2);
+    const stabilizedHttp3 = stabilizeThroughput(http3Candidate, network, previous?.http3);
+    const stabilizedUdp = stabilizeThroughput(udpCandidate, network, previous?.udp);
+
     return {
-        http2: stabilizeThroughput(http2, network, previous?.http2),
-        http3: stabilizeThroughput(http3Candidate, network, previous?.http3),
-        udp: stabilizeThroughput(udpCandidate, network, previous?.udp),
+        http2: applySimulation(stabilizedHttp2, simulationConfig),
+        http3: applySimulation(stabilizedHttp3, simulationConfig),
+        udp: applySimulation(stabilizedUdp, simulationConfig),
     };
 }

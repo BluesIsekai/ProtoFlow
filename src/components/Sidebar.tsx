@@ -3,7 +3,6 @@ import {
     BookOpen,
     HelpCircle,
     LayoutDashboard,
-    Network,
     Settings,
     ShieldCheck,
     Stethoscope,
@@ -56,19 +55,7 @@ export const Sidebar = () => {
 
                 <div className="h-px w-full bg-outline-variant/10 my-2"></div>
 
-                <NavLink
-                    to="/network-map"
-                    className={({ isActive }) =>
-                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
-                            isActive
-                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
-                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
-                        }`
-                    }
-                >
-                    <Network size={18} className="shrink-0" />
-                    <span className="hidden lg:inline">Network Map</span>
-                </NavLink>
+
 
                 <NavLink
                     to="/security-logs"
@@ -121,7 +108,7 @@ export const Sidebar = () => {
                             className={`w-2 h-2 rounded-full ${connected ? "bg-primary animate-pulse" : "bg-error"}`}
                         ></div>
                         <span className="text-xs font-bold text-on-surface">
-                            {connected ? "Connected" : "Disconnected"}
+                            {connected ? "Active" : "Disconnected"}
                         </span>
                     </div>
                     <div className="mt-2 text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
