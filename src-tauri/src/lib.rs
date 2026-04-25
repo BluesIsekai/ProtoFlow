@@ -6,9 +6,14 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 🔥 start backend
+    std::process::Command::new("node")
+        .arg("backend/dist/server.js")
+        .spawn()
+        .expect("failed to start backend");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
