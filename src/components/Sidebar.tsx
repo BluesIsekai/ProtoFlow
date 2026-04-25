@@ -1,85 +1,161 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Activity, Settings, Network, ShieldCheck, Stethoscope, BookOpen, HelpCircle } from 'lucide-react';
+import {
+    Activity,
+    BookOpen,
+    HelpCircle,
+    LayoutDashboard,
+    Network,
+    Settings,
+    ShieldCheck,
+    Stethoscope,
+} from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+import { useNetworkStore } from "../store/networkStore";
 
 export const Sidebar = () => {
     const location = useLocation();
+    const { connectionStatus, control } = useNetworkStore();
+    const connected = connectionStatus === "connected";
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-72 bg-surface-container-low flex flex-col gap-4 pt-8 pb-8 px-6 z-40 hidden md:flex border-r border-outline-variant/5">
-            <div className="mb-10 px-4">
+        <aside className="fixed left-0 top-0 h-screen w-16 lg:w-64 bg-surface-container-low flex flex-col gap-4 py-8 px-2 lg:px-6 z-40 border-r border-outline-variant/5">
+            <div className="mb-10 px-2 lg:px-4 hidden lg:block">
                 <h1 className="font-display font-bold text-primary text-xl tracking-widest">SMART PROTOCOL</h1>
-                <p className="font-body text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">SWITCHER V.4.2</p>
+                <p className="font-body text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    SWITCHER V.4.2
+                </p>
             </div>
 
             <nav className="flex flex-col gap-2">
-                <NavLink 
-                    to="/" 
-                    className={({ isActive }) => 
-                        `p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center gap-4 transition-all duration-200 rounded-2xl ${
-                            isActive || location.pathname === ''
-                            ? 'bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]' 
-                            : 'text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1'
+                <NavLink
+                    to="/"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive || location.pathname === ""
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
                         }`
                     }
                 >
-                    <LayoutDashboard size={18} />
-                    Dashboard
+                    <LayoutDashboard size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Dashboard</span>
                 </NavLink>
 
-                <NavLink 
-                    to="/analyzer" 
-                    className={({ isActive }) => 
-                        `p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center gap-4 transition-all duration-200 rounded-2xl ${
-                            isActive 
-                            ? 'bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]' 
-                            : 'text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1'
+                <NavLink
+                    to="/analyzer"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
                         }`
                     }
                 >
-                    <Activity size={18} />
-                    Protocol Analyzer
+                    <Activity size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Protocol Analyzer</span>
                 </NavLink>
 
                 <div className="h-px w-full bg-outline-variant/10 my-2"></div>
 
-                <a className="text-slate-500 p-4 font-body text-xs font-semibold uppercase tracking-widest hover:bg-surface-container-high hover:text-white transition-all duration-200 hover:translate-x-1 flex items-center gap-4 rounded-2xl" href="#">
-                    <Network size={18} />
-                    Network Map
-                </a>
-                
-                <a className="text-slate-500 p-4 font-body text-xs font-semibold uppercase tracking-widest hover:bg-surface-container-high hover:text-white transition-all duration-200 hover:translate-x-1 flex items-center gap-4 rounded-2xl" href="#">
-                    <ShieldCheck size={18} />
-                    Security Logs
-                </a>
-                
-                <a className="text-slate-500 p-4 font-body text-xs font-semibold uppercase tracking-widest hover:bg-surface-container-high hover:text-white transition-all duration-200 hover:translate-x-1 flex items-center gap-4 rounded-2xl" href="#">
-                    <Stethoscope size={18} />
-                    System Health
-                </a>
-                
-                <a className="text-slate-500 p-4 font-body text-xs font-semibold uppercase tracking-widest hover:bg-surface-container-high hover:text-white transition-all duration-200 hover:translate-x-1 flex items-center gap-4 rounded-2xl" href="#">
-                    <Settings size={18} />
-                    Settings
-                </a>
+                <NavLink
+                    to="/network-map"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
+                        }`
+                    }
+                >
+                    <Network size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Network Map</span>
+                </NavLink>
+
+                <NavLink
+                    to="/security-logs"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
+                        }`
+                    }
+                >
+                    <ShieldCheck size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Security Logs</span>
+                </NavLink>
+
+                <NavLink
+                    to="/system-health"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
+                        }`
+                    }
+                >
+                    <Stethoscope size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">System Health</span>
+                </NavLink>
+
+                <NavLink
+                    to="/settings"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
+                        }`
+                    }
+                >
+                    <Settings size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Settings</span>
+                </NavLink>
             </nav>
 
             <div className="mt-auto flex flex-col gap-2">
-                <div className="p-4 rounded-2xl bg-surface-container-high border border-outline-variant/10 mb-4">
+                <div className="p-2 lg:p-4 rounded-2xl bg-surface-container-high border border-outline-variant/10 mb-4 hidden lg:block">
                     <p className="text-[10px] uppercase tracking-widest text-outline mb-2">Engine Status</p>
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                        <span className="text-xs font-bold text-on-surface">V4.2 Stable</span>
+                        <div
+                            className={`w-2 h-2 rounded-full ${connected ? "bg-primary animate-pulse" : "bg-error"}`}
+                        ></div>
+                        <span className="text-xs font-bold text-on-surface">
+                            {connected ? "Connected" : "Disconnected"}
+                        </span>
+                    </div>
+                    <div className="mt-2 text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
+                        {control?.mode === "manual" ? "Manual Override" : "Auto Switching"}
                     </div>
                 </div>
 
-                <a className="text-slate-500 p-4 font-body text-xs font-semibold uppercase tracking-widest hover:text-white flex items-center gap-4" href="#">
-                    <BookOpen size={18} />
-                    Docs
-                </a>
-                <a className="text-slate-500 p-4 font-body text-xs font-semibold uppercase tracking-widest hover:text-white flex items-center gap-4" href="#">
-                    <HelpCircle size={18} />
-                    Support
-                </a>
+                <NavLink
+                    to="/docs"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
+                        }`
+                    }
+                >
+                    <BookOpen size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Docs</span>
+                </NavLink>
+                
+                <NavLink
+                    to="/support"
+                    className={({ isActive }) =>
+                        `p-3 lg:p-4 font-body text-xs font-semibold uppercase tracking-widest flex items-center justify-center lg:justify-start gap-4 transition-all duration-200 rounded-2xl ${
+                            isActive
+                                ? "bg-surface-container-highest text-primary shadow-[0_0_20px_rgba(0,173,181,0.15)]"
+                                : "text-slate-500 hover:bg-surface-container-high hover:text-white hover:translate-x-1"
+                        }`
+                    }
+                >
+                    <HelpCircle size={18} className="shrink-0" />
+                    <span className="hidden lg:inline">Support</span>
+                </NavLink>
             </div>
         </aside>
     );

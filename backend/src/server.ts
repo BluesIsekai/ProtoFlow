@@ -1,0 +1,215 @@
+import cors from "cors";
+import express from "express";
+import http from "node:http";
+import { WebSocketServer } from "ws";
+import { Prober } from "./prober";
+import { compareProtocols } from "./protocols";
+import { decideBestProtocol } from "./switcher";
+import { ControlState, OptimizerSnapshot } from "./types";
+
+const PORT = Number(process.env.BACKEND_PORT ?? 4317);
+
+class OptimizerEngine {
+    private control: ControlState;
+    private prober: Prober;
+    private timer: NodeJS.Timeout | null = null;
+    private runningCycle = false;
+    private latestSnapshot: OptimizerSnapshot | null = null;
+    private readonly listeners = new Set<(snapshot: OptimizerSnapshot) => void>();
+
+    constructor() {
+        this.control = {
+            running: true,
+            mode: "auto",
+            targetUrl: process.env.TARGET_URL ?? "https://cloudflare-quic.com/",
+            probeHost: process.env.PROBE_HOST ?? "1.1.1.1",
+            probePort: Number(process.env.PROBE_PORT ?? 443),
+            intervalMs: Number(process.env.PROBE_INTERVAL_MS ?? 2000),
+            mockMode: process.env.MOCK_MODE === "1" || process.env.MOCK_MODE === "true",
+            trafficType: "reliable",
+        };
+
+        this.prober = new Prober({
+            mockMode: this.control.mockMode,
+            probeHost: this.control.probeHost,
+            probePort: this.control.probePort,
+        });
+    }
+
+    addListener(listener: (snapshot: OptimizerSnapshot) => void): () => void {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    }
+
+    getSnapshot(): OptimizerSnapshot | null {
+        return this.latestSnapshot;
+    }
+
+    getControlState(): ControlState {
+        return { ...this.control };
+    }
+
+    start(): void {
+        if (this.timer || !this.control.running) return;
+
+        this.runCycle().catch(error => {
+            console.error("[optimizer] Initial cycle failed", error);
+        });
+
+        this.timer = setInterval(() => {
+            void this.runCycle();
+        }, this.control.intervalMs);
+
+        console.log(`[optimizer] started, interval=${this.control.intervalMs}ms, native=${this.prober.usingNative}`);
+    }
+
+    stop(): void {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+            console.log("[optimizer] stopped");
+        }
+    }
+
+    updateControl(patch: Partial<ControlState>): ControlState {
+        this.control = { ...this.control, ...patch };
+
+        if (patch.mode === "auto") {
+            this.control.manualProtocol = undefined;
+        }
+
+        const shouldRecreateProber =
+            patch.mockMode !== undefined || patch.probeHost !== undefined || patch.probePort !== undefined;
+
+        if (shouldRecreateProber) {
+            this.prober = new Prober({
+                mockMode: this.control.mockMode,
+                probeHost: this.control.probeHost,
+                probePort: this.control.probePort,
+            });
+            console.log(`[optimizer] prober updated, native=${this.prober.usingNative}`);
+        }
+
+        if (this.timer && patch.intervalMs && patch.intervalMs > 0) {
+            clearInterval(this.timer);
+            this.timer = setInterval(() => {
+                void this.runCycle();
+            }, this.control.intervalMs);
+        }
+
+        this.control.running ? this.start() : this.stop();
+
+        return this.getControlState();
+    }
+
+    private async runCycle(): Promise<void> {
+        if (!this.control.running || this.runningCycle) return;
+
+        this.runningCycle = true;
+
+        try {
+            const network = await this.prober.getNetworkStats();
+            const protocols = await compareProtocols(
+                this.control.targetUrl,
+                this.prober,
+                network,
+                this.latestSnapshot?.protocols,
+            );
+            const decision = decideBestProtocol(protocols, network, this.control);
+
+            const snapshot: OptimizerSnapshot = {
+                timestamp: Date.now(),
+                network,
+                protocols,
+                decision,
+                control: this.getControlState(),
+            };
+
+            this.latestSnapshot = snapshot;
+
+            for (const listener of this.listeners) {
+                listener(snapshot);
+            }
+
+            console.log(
+                `[optimizer] ${new Date(snapshot.timestamp).toISOString()} best=${decision.bestProtocol} confidence=${decision.confidence}% source=${network.source}`,
+            );
+        } catch (error) {
+            console.error("[optimizer] cycle error", error);
+        } finally {
+            this.runningCycle = false;
+        }
+    }
+}
+
+const engine = new OptimizerEngine();
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: "/ws" });
+
+app.use(cors());
+app.use(express.json());
+
+// ---------- REST ----------
+app.get("/health", (_req, res) => {
+    res.json({ ok: true, timestamp: Date.now() });
+});
+
+app.get("/snapshot", (_req, res) => {
+    const snapshot = engine.getSnapshot();
+    if (!snapshot) {
+        return res.json({
+            timestamp: Date.now(),
+            network: { rttMs: 0, jitterMs: 0, packetLoss: 0, source: "init" },
+            protocols: {},
+            decision: {
+                bestProtocol: "http2",
+                confidence: 0,
+                reason: "Initializing...",
+            },
+            control: engine.getControlState(),
+        });
+    }
+    res.json(snapshot);
+});
+
+// ---------- WEBSOCKET ----------
+wss.on("connection", ws => {
+    (ws as any).isAlive = true;
+
+    ws.on("pong", () => {
+        (ws as any).isAlive = true;
+    });
+
+    const snapshot = engine.getSnapshot();
+    if (snapshot) {
+        ws.send(JSON.stringify({ type: "snapshot", data: snapshot }));
+    }
+
+    const unsubscribe = engine.addListener(nextSnapshot => {
+        if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: "update", data: nextSnapshot }));
+        }
+    });
+
+    ws.on("close", () => {
+        unsubscribe();
+    });
+});
+
+// 🔥 HEARTBEAT (FIXES DISCONNECTS)
+setInterval(() => {
+    wss.clients.forEach((ws: any) => {
+        if (!ws.isAlive) return ws.terminate();
+
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 5000);
+
+// ---------- START ----------
+server.listen(PORT, () => {
+    console.log(`[server] Dynamic Multi-Protocol Traffic Optimizer backend listening on http://localhost:${PORT}`);
+    console.log(`[server] websocket endpoint ws://localhost:${PORT}/ws`);
+    engine.start();
+});
