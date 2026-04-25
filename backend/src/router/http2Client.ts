@@ -26,7 +26,6 @@ export async function requestHttp2(options: RouteRequestOptions): Promise<Respon
         const start = performance.now();
         let completed = false;
 
-        // 🔥 SAFE CLEANUP FUNCTION
         const cleanup = () => {
             try { client.close(); } catch {}
         };

@@ -1,76 +1,150 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
+
+const INPUT_DIR = path.join(__dirname, ".stitch/designs");
+const OUTPUT_DIR = path.join(__dirname, "src/pages");
 
 const pages = [
-  { file: 'network-map.html', component: 'NetworkMap' },
-  { file: 'security-logs.html', component: 'SecurityLogs' },
-  { file: 'system-health.html', component: 'SystemHealth' },
-  { file: 'settings.html', component: 'Settings' },
-  { file: 'docs.html', component: 'Docs' },
-  { file: 'support.html', component: 'Support' }
+  { file: "network-map.html", component: "NetworkMap" },
+  { file: "security-logs.html", component: "SecurityLogs" },
+  { file: "system-health.html", component: "SystemHealth" },
+  { file: "settings.html", component: "Settings" },
+  { file: "docs.html", component: "Docs" },
+  { file: "support.html", component: "Support" },
+  { file: "dashboard.html", component: "Dashboard" },
+  { file: "protocol-analyzer.html", component: "ProtocolAnalyzer" },
 ];
 
-const htmlToJsx = (html) => {
-  return html
-    .replace(/class=/g, 'className=')
-    .replace(/for=/g, 'htmlFor=')
-    .replace(/viewbox/g, 'viewBox')
-    .replace(/stroke-width/g, 'strokeWidth')
-    .replace(/stroke-dasharray/g, 'strokeDasharray')
-    .replace(/stop-color/g, 'stopColor')
-    .replace(/stop-opacity/g, 'stopOpacity')
-    .replace(/stroke-linecap/g, 'strokeLinecap')
-    .replace(/stroke-linejoin/g, 'strokeLinejoin')
-    .replace(/fill-rule/g, 'fillRule')
-    .replace(/clip-rule/g, 'clipRule')
-    .replace(/style="([^"]+)"/g, (match, p1) => {
-      const styleObj = p1.split(';').filter(Boolean).map(s => {
-        const [key, value] = s.split(':').map(str => str.trim());
-        if (!key || !value) return '';
-        const camelKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
-        return `${camelKey}: "${value}"`;
-      }).filter(Boolean).join(', ');
-      return `style={{${styleObj}}}`;
+// 🔧 style converter
+function convertStyle(styleStr) {
+  return styleStr
+    .split(";")
+    .filter(Boolean)
+    .map((s) => {
+      const [key, value] = s.split(":").map((x) => x.trim());
+      if (!key || !value) return "";
+      const camelKey = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      return `${camelKey}: "${value}"`;
     })
-    .replace(/<img(.*?)>/g, (match, p1) => {
-      if (p1.endsWith('/')) return match;
-      return `<img${p1} />`;
-    })
-    .replace(/<input(.*?)>/g, (match, p1) => {
-      if (p1.endsWith('/')) return match;
-      return `<input${p1} />`;
-    })
-    .replace(/<hr(.*?)>/g, (match, p1) => {
-      if (p1.endsWith('/')) return match;
-      return `<hr${p1} />`;
-    })
-    .replace(/<br(.*?)>/g, (match, p1) => {
-      if (p1.endsWith('/')) return match;
-      return `<br${p1} />`;
-    })
-    .replace(/<!--([\s\S]*?)-->/g, '{/* $1 */}')
-    .replace(/ checked=""/g, ' defaultChecked={true}')
-    .replace(/ selected=""/g, '')
-    .replace(/lineargradient/g, 'linearGradient')
-    .replace(/ checked /g, ' defaultChecked={true} ')
-    .replace(/ disabled /g, ' disabled={true} ')
-    .replace(/ readonly /g, ' readOnly={true} ')
-    .replace(/ autofocus /g, ' autoFocus={true} ');
-};
-
-for (const { file, component } of pages) {
-  const filePath = path.join(__dirname, '.stitch/designs', file);
-  if (!fs.existsSync(filePath)) continue;
-  
-  const content = fs.readFileSync(filePath, 'utf8');
-  let mainContentMatch = content.match(/<main[^>]*>([\s\S]*?)<\/main>/);
-  if (!mainContentMatch) continue;
-  
-  let mainContent = htmlToJsx(mainContentMatch[1]);
-  
-  const jsxCode = `export const ${component} = () => {\n    return (\n        <div className="p-8 lg:p-12 animate-in fade-in duration-500">\n            ${mainContent}\n        </div>\n    );\n};\n`;
-  
-  const outPath = path.join(__dirname, 'src/pages', `${component}.tsx`);
-  fs.writeFileSync(outPath, jsxCode);
-  console.log(`Created ${outPath}`);
+    .filter(Boolean)
+    .join(", ");
 }
+
+// 🔥 main converter
+function htmlToJsx(html) {
+  return html
+    // remove scripts
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+
+    // remove DOCTYPE + html/head
+    .replace(/<!DOCTYPE[^>]*>/i, "")
+    .replace(/<html[^>]*>/i, "")
+    .replace(/<\/html>/i, "")
+    .replace(/<head[\s\S]*?<\/head>/i, "")
+
+    // JSON blocks → safe
+    .replace(/\{([^}]*:[^}]*)\}/g, (match) => {
+      const escaped = match.replace(/`/g, "\\`");
+      return `{\\`${escaped}\\`}`;
+    })
+
+    // attributes
+    .replace(/class=/g, "className=")
+    .replace(/for=/g, "htmlFor=")
+
+    // SVG fixes
+    .replace(/viewbox/g, "viewBox")
+    .replace(/stroke-width/g, "strokeWidth")
+    .replace(/stroke-dasharray/g, "strokeDasharray")
+    .replace(/stroke-linecap/g, "strokeLinecap")
+    .replace(/stroke-linejoin/g, "strokeLinejoin")
+    .replace(/stop-color/g, "stopColor")
+    .replace(/stop-opacity/g, "stopOpacity")
+    .replace(/fill-rule/g, "fillRule")
+    .replace(/clip-rule/g, "clipRule")
+    .replace(/lineargradient/g, "linearGradient")
+    .replace(/animatemotion/g, "animateMotion")
+    .replace(/repeatcount/g, "repeatCount")
+    .replace(/foreignobject/g, "foreignObject")
+
+    // table fixes
+    .replace(/colspan="([^"]+)"/g, "colSpan={$1}")
+
+    // font fixes
+    .replace(/font-family=/g, "fontFamily=")
+    .replace(/font-size=/g, "fontSize=")
+    .replace(/font-weight=/g, "fontWeight=")
+    .replace(/text-anchor=/g, "textAnchor=")
+
+    // inline styles
+    .replace(/style="([^"]+)"/g, (_, style) => {
+      return `style={{${convertStyle(style)}}}`;
+    })
+
+    // self-closing tags
+    .replace(/<img([^>]*)>/g, "<img$1 />")
+    .replace(/<input([^>]*)>/g, "<input$1 />")
+    .replace(/<br([^>]*)>/g, "<br$1 />")
+    .replace(/<hr([^>]*)>/g, "<hr$1 />")
+
+    // cleanup double slashes
+    .replace(/\/\s*\/>/g, "/>")
+
+    // comments
+    .replace(/<!--([\s\S]*?)-->/g, "{/* $1 */}")
+
+    // boolean attrs
+    .replace(/ checked(="")?/g, " defaultChecked={true}")
+    .replace(/ disabled(="")?/g, " disabled={true}")
+    .replace(/ readonly(="")?/g, " readOnly={true}")
+    .replace(/ autofocus(="")?/g, " autoFocus={true}");
+}
+
+// ensure output dir
+if (!fs.existsSync(OUTPUT_DIR)) {
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+// 🔁 process pages
+for (const { file, component } of pages) {
+  const filePath = path.join(INPUT_DIR, file);
+
+  console.log(`\n📄 Processing: ${file}`);
+
+  if (!fs.existsSync(filePath)) {
+    console.warn(`❌ Missing file: ${file}`);
+    continue;
+  }
+
+  const content = fs.readFileSync(filePath, "utf-8");
+
+  // 🔥 USE BODY (NOT MAIN)
+  const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+
+  let rawHtml;
+  if (bodyMatch) {
+    console.log(`✅ Using <body> content`);
+    rawHtml = bodyMatch[1];
+  } else {
+    console.warn(`⚠️ No <body>, using full file`);
+    rawHtml = content;
+  }
+
+  const jsx = htmlToJsx(rawHtml);
+
+  const output = `export const ${component} = () => {
+  return (
+    <>
+      ${jsx}
+    </>
+  );
+};
+`;
+
+  const outPath = path.join(OUTPUT_DIR, `${component}.tsx`);
+  fs.writeFileSync(outPath, output);
+
+  console.log(`✅ Created: ${outPath}`);
+}
+
+console.log("\n🎉 Conversion complete!");

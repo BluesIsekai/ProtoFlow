@@ -1,7 +1,7 @@
 export const Docs = () => {
-    return (
-        <div className="w-full max-w-[1400px] mx-auto p-8 lg:p-12 animate-in fade-in duration-500">
-            
+  return (
+    <div className="p-8 lg:p-12 animate-in fade-in duration-500">
+      
 {/*  Header Section  */}
 <section className="mb-16">
 <div className="inline-block px-3 py-1 mb-4 rounded-full bg-primary/10 border border-primary/20">
@@ -16,7 +16,7 @@ export const Docs = () => {
 </section>
 {/*  Section 1: How it works  */}
 <section className="mb-24" id="how-it-works">
-<div className="flex items-center gap-4 lg:gap-6 mb-8">
+<div className="flex items-center gap-4 mb-8">
 <div className="w-12 h-1 bg-primary"></div>
 <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
 </div>
@@ -39,18 +39,18 @@ export const Docs = () => {
 <div className="bg-surface-container-highest h-full p-8 rounded-2xl flex flex-col justify-center border-l-4 border-primary">
 <div className="mb-6">
 <span className="text-4xl font-bold text-on-background">99.99%</span>
-<p className="text-sm lg:text-base text-primary uppercase tracking-widest font-bold">Signal Integrity</p>
+<p className="text-sm text-primary uppercase tracking-widest font-bold">Signal Integrity</p>
 </div>
 <div className="space-y-6">
-<div className="flex items-center gap-4 lg:gap-6">
+<div className="flex items-center gap-4">
 <span className="material-symbols-outlined text-tertiary">check_circle</span>
 <span className="text-on-surface">Zero-buffer streaming</span>
 </div>
-<div className="flex items-center gap-4 lg:gap-6">
+<div className="flex items-center gap-4">
 <span className="material-symbols-outlined text-tertiary">check_circle</span>
 <span className="text-on-surface">Sub-5ms jitter compensation</span>
 </div>
-<div className="flex items-center gap-4 lg:gap-6">
+<div className="flex items-center gap-4">
 <span className="material-symbols-outlined text-tertiary">check_circle</span>
 <span className="text-on-surface">Global peer mesh support</span>
 </div>
@@ -61,7 +61,7 @@ export const Docs = () => {
 </section>
 {/*  Section 2: Protocol Explanation  */}
 <section className="mb-24" id="protocol-explanation">
-<div className="flex items-center gap-4 lg:gap-6 mb-8">
+<div className="flex items-center gap-4 mb-8">
 <div className="w-12 h-1 bg-primary"></div>
 <h2 className="text-3xl font-bold tracking-tight">Protocol Explanation</h2>
 </div>
@@ -72,7 +72,7 @@ export const Docs = () => {
 <span className="material-symbols-outlined text-primary text-3xl">history</span>
 </div>
 <h3 className="text-xl font-bold mb-2">HTTP/2 (Legacy)</h3>
-<p className="text-on-surface-variant text-sm lg:text-base mb-6 leading-relaxed">
+<p className="text-on-surface-variant text-sm mb-6 leading-relaxed">
                         The fallback standard. Best for static asset delivery and legacy hardware compatibility where advanced QUIC features are unavailable.
                     </p>
 <div className="mt-auto pt-4 border-t border-outline-variant/10">
@@ -85,7 +85,7 @@ export const Docs = () => {
 <span className="material-symbols-outlined text-on-primary text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>speed</span>
 </div>
 <h3 className="text-xl font-bold mb-2">HTTP/3 (QUIC)</h3>
-<p className="text-on-surface-variant text-sm lg:text-base mb-6 leading-relaxed">
+<p className="text-on-surface-variant text-sm mb-6 leading-relaxed">
                         The performance baseline. Built on UDP with built-in encryption and stream multiplexing to eliminate Head-of-Line blocking.
                     </p>
 <div className="mt-auto pt-4 border-t border-outline-variant/20">
@@ -98,7 +98,7 @@ export const Docs = () => {
 <span className="material-symbols-outlined text-tertiary text-3xl">hub</span>
 </div>
 <h3 className="text-xl font-bold mb-2">UDP (Raw)</h3>
-<p className="text-on-surface-variant text-sm lg:text-base mb-6 leading-relaxed">
+<p className="text-on-surface-variant text-sm mb-6 leading-relaxed">
                         Unfiltered speed. Used for Aether's custom packet fragmentation and multi-path telemetry data without the overhead of TLS handshakes.
                     </p>
 <div className="mt-auto pt-4 border-t border-outline-variant/10">
@@ -109,7 +109,7 @@ export const Docs = () => {
 </section>
 {/*  Section 3: Decision Logic  */}
 <section className="mb-24" id="decision-logic">
-<div className="flex items-center gap-4 lg:gap-6 mb-8">
+<div className="flex items-center gap-4 mb-8">
 <div className="w-12 h-1 bg-primary"></div>
 <h2 className="text-3xl font-bold tracking-tight">Decision Logic</h2>
 </div>
@@ -139,22 +139,22 @@ export const Docs = () => {
 <div className="flex gap-6">
 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs">1</div>
 <div>
-<h4 className="text-lg lg:text-xl font-bold mb-2">Probe Stage</h4>
-<p className="text-on-surface-variant text-sm lg:text-base">Synthetic heartbeat packets are sent across all protocols simultaneously to measure current path efficiency.</p>
+<h4 className="text-lg font-bold mb-2">Probe Stage</h4>
+<p className="text-on-surface-variant text-sm">Synthetic heartbeat packets are sent across all protocols simultaneously to measure current path efficiency.</p>
 </div>
 </div>
 <div className="flex gap-6">
 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs">2</div>
 <div>
-<h4 className="text-lg lg:text-xl font-bold mb-2">Metric Comparison</h4>
-<p className="text-on-surface-variant text-sm lg:text-base">Real-time stats are compared against the desired Quality of Service (QoS) profile defined by the application layer.</p>
+<h4 className="text-lg font-bold mb-2">Metric Comparison</h4>
+<p className="text-on-surface-variant text-sm">Real-time stats are compared against the desired Quality of Service (QoS) profile defined by the application layer.</p>
 </div>
 </div>
 <div className="flex gap-6">
 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs">3</div>
 <div>
-<h4 className="text-lg lg:text-xl font-bold mb-2">Path Switching</h4>
-<p className="text-on-surface-variant text-sm lg:text-base">If a superior path is detected, the protocol orchestrator migrates active sessions seamlessly using Aether's proprietary "Mirror Shift" technique.</p>
+<h4 className="text-lg font-bold mb-2">Path Switching</h4>
+<p className="text-on-surface-variant text-sm">If a superior path is detected, the protocol orchestrator migrates active sessions seamlessly using Aether's proprietary "Mirror Shift" technique.</p>
 </div>
 </div>
 {/*  Visual Flow Hint  */}
@@ -180,6 +180,6 @@ export const Docs = () => {
 </div>
 </footer>
 
-        </div>
-    );
+    </div>
+  );
 };
