@@ -86,3 +86,15 @@ export interface NativeNetworkStats {
     loss: number;
     sampleCount: number;
 }
+
+export type EventType = "ANOMALY" | "PROTOCOL_SWITCH" | "THROUGHPUT_DROP" | "REQUEST_FAILURE";
+export type EventSeverity = "CRITICAL" | "WARNING" | "INFO";
+
+export interface EventLog {
+    id: string;
+    timestamp: number;
+    type: EventType;
+    severity: EventSeverity;
+    protocol: ProtocolName | "system";
+    message: string;
+}

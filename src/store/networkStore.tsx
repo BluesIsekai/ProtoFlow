@@ -433,7 +433,6 @@ export const NetworkStoreProvider = ({ children }: { children: ReactNode }) => {
 
     useWebSocket<SocketPayload>({
         url: SOCKET_URL,
-        debounceMs: 350,
         onStatusChange: status => {
             setConnectionStatus(status);
         },

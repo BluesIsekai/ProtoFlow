@@ -2,10 +2,11 @@ import cors from "cors";
 import express from "express";
 import http from "node:http";
 import { WebSocketServer } from "ws";
+import { analyseSnapshot } from "./eventLogger";
 import { Prober } from "./prober";
 import { compareProtocols } from "./protocols";
 import { decideBestProtocol } from "./switcher";
-import { ControlState, OptimizerSnapshot } from "./types";
+import { ControlState, EventLog, OptimizerSnapshot, ProtocolName } from "./types";
 import { routeRequest } from "./router/router";
 
 const PORT = Number(process.env.BACKEND_PORT ?? 4317);
@@ -158,6 +159,32 @@ app.use(express.json());
 
 export let simulationConfig: any = null;
 
+// ---------- EVENT LOG RING BUFFER ----------
+const MAX_EVENT_LOGS = 100;
+const eventLogs: EventLog[] = [];
+let previousBestProtocol: ProtocolName | null = null;
+
+function pushEvents(snapshot: OptimizerSnapshot): void {
+    const newEvents = analyseSnapshot(snapshot, previousBestProtocol);
+    previousBestProtocol = snapshot.decision.bestProtocol;
+
+    if (newEvents.length === 0) return;
+
+    // append, trim front if over limit
+    eventLogs.push(...newEvents);
+    if (eventLogs.length > MAX_EVENT_LOGS) {
+        eventLogs.splice(0, eventLogs.length - MAX_EVENT_LOGS);
+    }
+
+    // broadcast each new event to all open clients
+    const encoded = newEvents.map(e => JSON.stringify({ type: "EVENT_LOG", data: e }));
+    wss.clients.forEach((ws: any) => {
+        if (ws.readyState === ws.OPEN) {
+            for (const msg of encoded) ws.send(msg);
+        }
+    });
+}
+
 // ---------- REST ----------
 app.get("/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
@@ -232,15 +259,23 @@ wss.on("connection", ws => {
         (ws as any).isAlive = true;
     });
 
+    // send latest snapshot on connect
     const snapshot = engine.getSnapshot();
     if (snapshot) {
         ws.send(JSON.stringify({ type: "snapshot", data: snapshot }));
     }
 
+    // replay buffered event logs for this new client
+    for (const log of eventLogs) {
+        ws.send(JSON.stringify({ type: "EVENT_LOG", data: log }));
+    }
+
+    // subscribe to live updates
     const unsubscribe = engine.addListener(nextSnapshot => {
         if (ws.readyState === ws.OPEN) {
             ws.send(JSON.stringify({ type: "update", data: nextSnapshot }));
         }
+        pushEvents(nextSnapshot);
     });
 
     ws.on("close", () => {

@@ -4,6 +4,7 @@ export type SocketConnectionStatus = "connecting" | "connected" | "disconnected"
 
 interface UseWebSocketOptions<TMessage> {
     url: string;
+    /** @deprecated No longer used — messages are dispatched immediately. */
     debounceMs?: number;
     onMessage: (message: TMessage) => void;
     onStatusChange?: (status: SocketConnectionStatus) => void;
@@ -12,7 +13,6 @@ interface UseWebSocketOptions<TMessage> {
 
 export function useWebSocket<TMessage>({
     url,
-    debounceMs = 350,
     onMessage,
     onStatusChange,
     onError,
@@ -25,8 +25,6 @@ export function useWebSocket<TMessage>({
     const stoppedRef = useRef(false);
     const attemptRef = useRef(0);
     const connectionIdRef = useRef(0);
-    const pendingMessageRef = useRef<TMessage | null>(null);
-    const debounceTimerRef = useRef<number | null>(null);
     const onMessageRef = useRef(onMessage);
     const onStatusChangeRef = useRef(onStatusChange);
     const onErrorRef = useRef(onError);
@@ -45,13 +43,6 @@ export function useWebSocket<TMessage>({
             if (reconnectTimeoutRef.current !== null) {
                 window.clearTimeout(reconnectTimeoutRef.current);
                 reconnectTimeoutRef.current = null;
-            }
-        };
-
-        const clearDebounce = () => {
-            if (debounceTimerRef.current !== null) {
-                window.clearTimeout(debounceTimerRef.current);
-                debounceTimerRef.current = null;
             }
         };
 
@@ -104,15 +95,8 @@ export function useWebSocket<TMessage>({
                     }
 
                     try {
-                        const parsed = JSON.parse(event.data) as TMessage;
-                        pendingMessageRef.current = parsed;
-
-                        clearDebounce();
-                        debounceTimerRef.current = window.setTimeout(() => {
-                            if (pendingMessageRef.current !== null && !stoppedRef.current) {
-                                onMessageRef.current(pendingMessageRef.current);
-                            }
-                        }, debounceMs);
+                        const parsed = JSON.parse(event.data as string) as TMessage;
+                        onMessageRef.current(parsed);
                     } catch {
                         onErrorRef.current?.("Invalid WebSocket payload");
                     }
@@ -150,11 +134,10 @@ export function useWebSocket<TMessage>({
         return () => {
             stoppedRef.current = true;
             clearReconnect();
-            clearDebounce();
             wsRef.current?.close();
             wsRef.current = null;
         };
-    }, [url, debounceMs]);
+    }, [url]);
 
     return { status, reconnectAttempts };
 }
