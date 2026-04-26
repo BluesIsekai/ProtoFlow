@@ -1,7 +1,7 @@
 {
-    "name": "traffic-optimizer",
+    "name": "ProtoFlow",
     "private": true,
-    "version": "0.1.0",
+    "version": "1.0.0",
     "type": "module",
     "scripts": {
         "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
@@ -12,7 +12,10 @@
         "build:backend": "npm --prefix backend run build",
         "start:backend": "npm --prefix backend run start",
         "tauri:dev": "tauri dev",
-        "tauri:build": "tauri build"
+        "tauri:build": "npm run build && tauri build",
+        "arch:build": "npm run build && NO_STRIP=true tauri build",
+        "ci:build": "npm run build && tauri build",
+        "clean": "rm -rf dist backend/dist src-tauri/target"
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.2.4",
