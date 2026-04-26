@@ -6,18 +6,71 @@
 #include <chrono>
 #include <cmath>
 #include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
 
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#ifdef _WIN32
+  #define _WINSOCK_DEPRECATED_NO_WARNINGS
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #pragma comment(lib, "Ws2_32.lib")
+#else
+  #include <arpa/inet.h>
+  #include <fcntl.h>
+  #include <netdb.h>
+  #include <sys/select.h>
+  #include <sys/socket.h>
+  #include <unistd.h>
+#endif
 
 namespace {
+
+#ifdef _WIN32
+using SocketHandle = SOCKET;
+constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
+
+int LastSocketError() {
+  return WSAGetLastError();
+}
+
+bool IsConnectInProgress(int error) {
+  return error == WSAEWOULDBLOCK || error == WSAEINPROGRESS || error == WSAEALREADY;
+}
+
+bool SetNonBlocking(SocketHandle fd) {
+  u_long mode = 1;
+  return ioctlsocket(fd, FIONBIO, &mode) == 0;
+}
+
+void CloseSocket(SocketHandle fd) {
+  closesocket(fd);
+}
+#else
+using SocketHandle = int;
+constexpr SocketHandle kInvalidSocket = -1;
+
+int LastSocketError() {
+  return errno;
+}
+
+bool IsConnectInProgress(int error) {
+  return error == EINPROGRESS;
+}
+
+bool SetNonBlocking(SocketHandle fd) {
+  const int flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0) {
+    return false;
+  }
+  return fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
+}
+
+void CloseSocket(SocketHandle fd) {
+  close(fd);
+}
+#endif
 
 bool ResolveTcpAddress(const std::string& host, int port, sockaddr_in* addrOut) {
   addrinfo hints{};
@@ -37,19 +90,21 @@ bool ResolveTcpAddress(const std::string& host, int port, sockaddr_in* addrOut) 
 }
 
 bool ProbeTcpRtt(const sockaddr_in& addr, int timeoutMs, double* rttOut) {
-  const int fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (fd < 0) {
+  const SocketHandle fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd == kInvalidSocket) {
     return false;
   }
 
-  const int flags = fcntl(fd, F_GETFL, 0);
-  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  if (!SetNonBlocking(fd)) {
+    CloseSocket(fd);
+    return false;
+  }
 
   const auto started = std::chrono::steady_clock::now();
   const int connectStatus = connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
 
-  if (connectStatus < 0 && errno != EINPROGRESS) {
-    close(fd);
+  if (connectStatus < 0 && !IsConnectInProgress(LastSocketError())) {
+    CloseSocket(fd);
     return false;
   }
 
@@ -61,17 +116,26 @@ bool ProbeTcpRtt(const sockaddr_in& addr, int timeoutMs, double* rttOut) {
   timeout.tv_sec = timeoutMs / 1000;
   timeout.tv_usec = (timeoutMs % 1000) * 1000;
 
+#ifdef _WIN32
+  const int selectStatus = select(0, nullptr, &writeSet, nullptr, &timeout);
+#else
   const int selectStatus = select(fd + 1, nullptr, &writeSet, nullptr, &timeout);
+#endif
   if (selectStatus <= 0) {
-    close(fd);
+    CloseSocket(fd);
     return false;
   }
 
   int socketError = 0;
+#ifdef _WIN32
+  int len = sizeof(socketError);
+  getsockopt(fd, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&socketError), &len);
+#else
   socklen_t len = sizeof(socketError);
   getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &len);
+#endif
 
-  close(fd);
+  CloseSocket(fd);
   if (socketError != 0) {
     return false;
   }
@@ -255,9 +319,23 @@ Napi::Value UdpProbeWrapped(const Napi::CallbackInfo& info) {
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
+
+#ifdef _WIN32
+  static bool initialized = false;
+  if (!initialized) {
+    WSADATA wsaData;
+    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (res != 0) {
+      printf("WSAStartup failed: %d\n", res);
+    }
+    initialized = true;
+  }
+#endif
+
   exports.Set("getNetworkStats", Napi::Function::New(env, GetNetworkStatsWrapped));
   exports.Set("http3Request", Napi::Function::New(env, Http3RequestWrapped));
   exports.Set("udpProbe", Napi::Function::New(env, UdpProbeWrapped));
+
   return exports;
 }
 

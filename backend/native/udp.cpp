@@ -8,13 +8,36 @@
 #include <string>
 #include <vector>
 
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <unistd.h>
+#ifdef _WIN32
+  #define _WINSOCK_DEPRECATED_NO_WARNINGS
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #pragma comment(lib, "Ws2_32.lib")
+#else
+  #include <arpa/inet.h>
+  #include <netdb.h>
+  #include <sys/socket.h>
+  #include <sys/time.h>
+  #include <unistd.h>
+#endif
 
 namespace {
+
+#ifdef _WIN32
+using SocketHandle = SOCKET;
+constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
+
+void CloseSocket(SocketHandle fd) {
+  closesocket(fd);
+}
+#else
+using SocketHandle = int;
+constexpr SocketHandle kInvalidSocket = -1;
+
+void CloseSocket(SocketHandle fd) {
+  close(fd);
+}
+#endif
 
 bool ResolveIPv4(const std::string& host, int port, sockaddr_in* addrOut) {
   addrinfo hints{};
@@ -73,18 +96,27 @@ UdpProbeResultNative RunUdpProbe(const std::string& host, int port, int packets,
     return result;
   }
 
-  const int fd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (fd < 0) {
+  const SocketHandle fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (fd == kInvalidSocket) {
     result.success = false;
     result.error = "failed to create UDP socket";
     result.loss = 1.0;
     return result;
   }
 
+#ifdef _WIN32
+  const DWORD timeout = static_cast<DWORD>(std::max(1, timeoutMs));
+  setsockopt(fd,
+             SOL_SOCKET,
+             SO_RCVTIMEO,
+             reinterpret_cast<const char*>(&timeout),
+             sizeof(timeout));
+#else
   timeval timeout{};
   timeout.tv_sec = timeoutMs / 1000;
   timeout.tv_usec = (timeoutMs % 1000) * 1000;
   setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
 
   std::vector<double> rtts;
   double receivedBytes = 0.0;
@@ -96,26 +128,48 @@ UdpProbeResultNative RunUdpProbe(const std::string& host, int port, int packets,
     std::vector<uint8_t> payload(static_cast<size_t>(payloadSize), 0);
 
     const auto sendTime = std::chrono::steady_clock::now();
+  #ifdef _WIN32
     const auto sent = sendto(fd,
-                             payload.data(),
-                             payload.size(),
+                 reinterpret_cast<const char*>(payload.data()),
+                 static_cast<int>(payload.size()),
                              0,
                              reinterpret_cast<const sockaddr*>(&remote),
-                             sizeof(remote));
+                 static_cast<int>(sizeof(remote)));
+  #else
+    const auto sent = sendto(fd,
+                 payload.data(),
+                 payload.size(),
+                 0,
+                 reinterpret_cast<const sockaddr*>(&remote),
+                 sizeof(remote));
+  #endif
 
     if (sent < 0) {
       continue;
     }
 
     sockaddr_in from{};
+  #ifdef _WIN32
+    int fromLen = sizeof(from);
+  #else
     socklen_t fromLen = sizeof(from);
+  #endif
     std::vector<uint8_t> response(payload.size());
+  #ifdef _WIN32
+    const auto received = recvfrom(fd,
+                     reinterpret_cast<char*>(response.data()),
+                     static_cast<int>(response.size()),
+                     0,
+                     reinterpret_cast<sockaddr*>(&from),
+                     &fromLen);
+  #else
     const auto received = recvfrom(fd,
                                    response.data(),
                                    response.size(),
                                    0,
                                    reinterpret_cast<sockaddr*>(&from),
                                    &fromLen);
+  #endif
 
     if (received > 0) {
       const auto receiveTime = std::chrono::steady_clock::now();
@@ -126,7 +180,7 @@ UdpProbeResultNative RunUdpProbe(const std::string& host, int port, int packets,
     }
   }
 
-  close(fd);
+  CloseSocket(fd);
 
   const auto cycleEnd = std::chrono::steady_clock::now();
   const double durationSec = std::max(

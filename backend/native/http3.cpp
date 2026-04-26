@@ -35,20 +35,25 @@ Http3ResultNative RunHttp3Request(const std::string& url, int timeoutMs) {
 #ifdef QUICHE_ENABLED
   const auto started = std::chrono::steady_clock::now();
 
-  // 🔥 Use LOWER idle timeout to prevent long hangs
+  // Use a lower idle timeout to prevent long hangs.
   const int effectiveTimeout = std::min(3000, std::max(500, timeoutMs));
 
   std::ostringstream command;
+#ifdef _WIN32
+  const char* sink = "NUL";
+#else
+  const char* sink = "/dev/null";
+#endif
   command << "quiche-client --no-verify "
           << "--idle-timeout " << effectiveTimeout << " "
-          << "\"" << url << "\" > /dev/null 2>&1";
+          << "\"" << url << "\" > " << sink << " 2>&1";
 
   const int code = std::system(command.str().c_str());
   const auto ended = std::chrono::steady_clock::now();
 
   double latencyMs = std::max(1.0, ElapsedMs(started, ended));
 
-  // 🔥 Clamp insane values (prevents scoring distortion)
+  // Clamp very high values to avoid scoring distortion.
   latencyMs = std::min(latencyMs, 3000.0);
 
   result.latency = latencyMs;
@@ -56,7 +61,7 @@ Http3ResultNative RunHttp3Request(const std::string& url, int timeoutMs) {
 
   bool success = ExitCodeSuccess(code);
 
-  // 🔥 CRITICAL FIX: treat very slow requests as failure
+  // Treat very slow requests as failure.
   if (latencyMs > 2500) {
     success = false;
   }

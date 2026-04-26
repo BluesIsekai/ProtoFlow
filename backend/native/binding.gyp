@@ -32,6 +32,11 @@
           "libraries": [
             "-lpthread"
           ]
+        }],
+        ["OS=='win'", {
+          "libraries": [
+            "-lWs2_32"
+          ]
         }]
       ]
     }
