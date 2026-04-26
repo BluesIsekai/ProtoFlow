@@ -1,4 +1,45 @@
+import { useEffect, useState } from "react";
+
+interface Config {
+  autoSwitch: boolean;
+  preferredProtocol: "http2" | "http3" | "udp";
+  probeInterval: number;
+  timeout: number;
+  turboMode: boolean;
+}
+
+const API_BASE = "http://localhost:4317";
+
 export const Settings = () => {
+  const [config, setConfig] = useState<Config | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/config`)
+      .then(res => res.json())
+      .then(data => setConfig(data))
+      .catch(console.error);
+  }, []);
+
+  const updateConfig = async (patch: Partial<Config>) => {
+    if (!config) return;
+    const oldConfig = { ...config };
+    setConfig({ ...config, ...patch });
+
+    try {
+      const res = await fetch(`${API_BASE}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("Failed to update config");
+      const updatedConfig = await res.json();
+      setConfig(updatedConfig);
+    } catch (err) {
+      console.error(err);
+      setConfig(oldConfig);
+    }
+  };
+
   return (
     <div className="p-8 lg:p-12 animate-in fade-in duration-500">
       
@@ -26,7 +67,7 @@ export const Settings = () => {
 <div className="p-12 max-w-6xl mx-auto">
 <div className="mb-12">
 <h3 className="text-4xl font-headline font-bold text-on-surface tracking-tight mb-2">System Configuration</h3>
-<p className="text-on-surface-variant max-w-2xl">Modify global traffic orchestration parameters and security protocols. Changes are staged until deployment.</p>
+<p className="text-on-surface-variant max-w-2xl">Modify global traffic orchestration parameters and security protocols. Changes are applied immediately in real-time.</p>
 </div>
 <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
 {/*  Navigation Sub-Sidebar  */}
@@ -55,13 +96,17 @@ export const Settings = () => {
 <h4 className="text-2xl font-headline font-semibold">General Optimization</h4>
 </div>
 {/*  Toggle Switch Setting  */}
+{config ? (
+<>
 <div className="flex items-start justify-between gap-12 group">
 <div className="space-y-1">
 <label className="text-lg font-medium text-on-surface block">Auto-switching Protocols</label>
 <p className="text-sm text-on-surface-variant">Automatically pivot between protocols based on real-time latency and packet loss metrics.</p>
 </div>
-<button className="relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full bg-primary-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-<span className="translate-x-7 pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+<button 
+  onClick={() => updateConfig({ autoSwitch: !config.autoSwitch })}
+  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${config.autoSwitch ? "bg-primary" : "bg-surface-container-highest"}`}>
+<span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${config.autoSwitch ? "translate-x-7" : "translate-x-1"}`}></span>
 </button>
 </div>
 {/*  Dropdown Setting  */}
@@ -71,13 +116,16 @@ export const Settings = () => {
 <p className="text-sm text-on-surface-variant">Primary protocol used for initial handshake before optimization occurs.</p>
 </div>
 <div className="relative w-full max-w-md">
-<select className="w-full bg-surface-container-highest border-none rounded-2xl py-4 px-6 text-on-surface focus:ring-2 focus:ring-primary appearance-none cursor-pointer">
-<option>QUIC (Default)</option>
-<option>HTTP/3 Enhanced</option>
-<option>TCP-BBRv3</option>
-<option>WebSocket Secure</option>
+<select 
+  disabled={config.autoSwitch}
+  value={config.preferredProtocol}
+  onChange={(e) => updateConfig({ preferredProtocol: e.target.value as Config['preferredProtocol'] })}
+  className={`w-full bg-surface-container-highest border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-primary appearance-none cursor-pointer ${config.autoSwitch ? "text-on-surface-variant/50 cursor-not-allowed" : "text-on-surface"}`}>
+<option value="http3">HTTP/3 (QUIC)</option>
+<option value="http2">HTTP/2 (TCP)</option>
+<option value="udp">UDP Direct</option>
 </select>
-<span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
+<span className={`material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${config.autoSwitch ? "text-outline/50" : "text-outline"}`}>expand_more</span>
 </div>
 </div>
 {/*  Numerical Input Group  */}
@@ -88,7 +136,12 @@ export const Settings = () => {
 <p className="text-sm text-on-surface-variant">Frequency of health check probes in milliseconds.</p>
 </div>
 <div className="flex items-center gap-2">
-<input className="w-full bg-surface-container-highest border-none rounded-2xl py-4 px-6 text-on-surface focus:ring-2 focus:ring-primary" type="number" value="250"/>
+<input 
+  className="w-full bg-surface-container-highest border-none rounded-2xl py-4 px-6 text-on-surface focus:ring-2 focus:ring-primary" 
+  type="number" 
+  value={config.probeInterval}
+  onChange={(e) => updateConfig({ probeInterval: parseInt(e.target.value) || 250 })}
+/>
 <span className="text-sm font-bold text-outline">MS</span>
 </div>
 </div>
@@ -98,15 +151,29 @@ export const Settings = () => {
 <p className="text-sm text-on-surface-variant">Maximum duration to wait for a probe response.</p>
 </div>
 <div className="flex items-center gap-2">
-<input className="w-full bg-surface-container-highest border-none rounded-2xl py-4 px-6 text-on-surface focus:ring-2 focus:ring-primary" type="number" value="1000"/>
+<input 
+  className="w-full bg-surface-container-highest border-none rounded-2xl py-4 px-6 text-on-surface focus:ring-2 focus:ring-primary" 
+  type="number" 
+  value={config.timeout}
+  onChange={(e) => updateConfig({ timeout: parseInt(e.target.value) || 1000 })}
+/>
 <span className="text-sm font-bold text-outline">MS</span>
 </div>
 </div>
 </div>
+</>
+) : (
+<div className="animate-pulse flex flex-col gap-8">
+<div className="h-12 bg-surface-container-highest rounded-2xl"></div>
+<div className="h-20 bg-surface-container-highest rounded-2xl"></div>
+<div className="h-20 bg-surface-container-highest rounded-2xl"></div>
+</div>
+)}
 </section>
 {/*  Section: Visual Telemetry (Bento Style)  */}
+{config && (
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-<div className="md:col-span-2 bg-surface-container-highest rounded-3xl p-8 relative overflow-hidden group">
+<div className="md:col-span-2 bg-surface-container-highest rounded-3xl p-8 relative overflow-hidden group flex flex-col justify-between">
 <div className="relative z-10 space-y-4">
 <div className="flex items-center gap-3">
 <span className="material-symbols-outlined text-tertiary">bolt</span>
@@ -114,7 +181,13 @@ export const Settings = () => {
 </div>
 <h5 className="text-3xl font-headline font-bold">Dynamic Bursting</h5>
 <p className="text-on-surface-variant text-sm">Enable short-term bandwidth spikes during peak congestion. Recommended for VOIP and video traffic.</p>
-<button className="mt-4 px-6 py-2 rounded-full border border-tertiary/30 text-tertiary text-sm font-bold hover:bg-tertiary/10 transition-colors">CONFIGURE LIMITS</button>
+</div>
+<div className="relative z-10 mt-6">
+<button 
+  onClick={() => updateConfig({ turboMode: !config.turboMode })}
+  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${config.turboMode ? "bg-tertiary" : "bg-surface-container-low"}`}>
+<span className={`inline-block h-6 w-6 transform rounded-full bg-white transition duration-200 ${config.turboMode ? "translate-x-7" : "translate-x-1"}`}></span>
+</button>
 </div>
 <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
 <span className="material-symbols-outlined text-[180px] text-tertiary" style={{fontVariationSettings: "'FILL' 1"}}>speed</span>
@@ -123,49 +196,13 @@ export const Settings = () => {
 <div className="bg-surface-container-low rounded-3xl p-8 flex flex-col justify-between hover:bg-surface-container-high transition-colors cursor-pointer">
 <span className="material-symbols-outlined text-primary text-4xl">cloud_sync</span>
 <div>
-<h5 className="text-xl font-headline font-bold mb-1">Sync Staged</h5>
-<p className="text-xs text-on-surface-variant uppercase tracking-tighter">Last synced 2m ago</p>
+<h5 className="text-xl font-headline font-bold mb-1">Live Sync</h5>
+<p className="text-xs text-on-surface-variant uppercase tracking-tighter">Synced in real-time</p>
 </div>
 </div>
 </div>
-{/*  Section: Security & Advanced  */}
-<section className="bg-surface-container-low rounded-3xl p-8 space-y-8">
-<div className="flex items-center gap-4">
-<span className="material-symbols-outlined text-error p-3 bg-error/10 rounded-xl">shield_person</span>
-<h4 className="text-2xl font-headline font-semibold">Security Overrides</h4>
-</div>
-<div className="space-y-6">
-<div className="p-6 bg-surface-container-highest/50 rounded-2xl ghost-border flex items-center justify-between">
-<div className="flex items-center gap-4">
-<span className="material-symbols-outlined text-outline">key</span>
-<div>
-<p className="font-medium">Force TLS 1.3</p>
-<p className="text-xs text-on-surface-variant">Disable legacy encryption handshakes globally.</p>
-</div>
-</div>
-<button className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-outline-variant transition-colors">
-<span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition duration-200"></span>
-</button>
-</div>
-<div className="p-6 bg-surface-container-highest/50 rounded-2xl ghost-border flex items-center justify-between">
-<div className="flex items-center gap-4">
-<span className="material-symbols-outlined text-outline">visibility_off</span>
-<div>
-<p className="font-medium">Stealth Mode</p>
-<p className="text-xs text-on-surface-variant">Obfuscate optimizer signatures in packet headers.</p>
-</div>
-</div>
-<button className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-primary transition-colors">
-<span className="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white transition duration-200"></span>
-</button>
-</div>
-</div>
-</section>
-{/*  Bottom Footer CTA  */}
-<div className="pt-12 flex items-center justify-end gap-6 border-t border-outline-variant/10">
-<button className="text-on-surface-variant hover:text-on-surface font-semibold px-6 py-3 transition-colors">Discard Pending Changes</button>
-<button className="kinetic-gradient px-12 py-4 rounded-2xl text-on-primary font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all">STAGING DEPLOYMENT</button>
-</div>
+)}
+
 </div>
 </div>
 </div>

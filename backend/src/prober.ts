@@ -25,6 +25,7 @@ interface ProberOptions {
     mockMode: boolean;
     probeHost: string;
     probePort: number;
+    timeoutMs?: number;
 }
 
 function tryLoadNativeBinding(): NativeBinding | null {
@@ -65,7 +66,7 @@ export class Prober {
                 host: this.options.probeHost,
                 port: this.options.probePort,
                 samples: 8,
-                timeoutMs: 800,
+                timeoutMs: this.options.timeoutMs ?? 800,
             });
 
             return {
@@ -90,7 +91,7 @@ export class Prober {
 
     async http3Request(url: string): Promise<Http3ProbeResult> {
         if (this.binding) {
-            const result = this.binding.http3Request({ url, timeoutMs: 2000 });
+            const result = this.binding.http3Request({ url, timeoutMs: this.options.timeoutMs ?? 2000 });
             return {
                 latencyMs: result.latency,
                 handshakeMs: result.handshake,
@@ -114,7 +115,7 @@ export class Prober {
                 port: this.options.probePort,
                 packets: 8,
                 payloadBytes: 64,
-                timeoutMs: 800,
+                timeoutMs: this.options.timeoutMs ?? 800,
             });
 
             return {

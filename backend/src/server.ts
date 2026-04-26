@@ -28,6 +28,8 @@ class OptimizerEngine {
             probePort: Number(process.env.PROBE_PORT ?? 443),
             intervalMs: Number(process.env.PROBE_INTERVAL_MS ?? 2000),
             mockMode: process.env.MOCK_MODE === "1" || process.env.MOCK_MODE === "true",
+            timeoutMs: 1000,
+            turboMode: false,
             trafficType: "reliable",
         };
 
@@ -35,6 +37,7 @@ class OptimizerEngine {
             mockMode: this.control.mockMode,
             probeHost: this.control.probeHost,
             probePort: this.control.probePort,
+            timeoutMs: this.control.timeoutMs,
         });
     }
 
@@ -85,13 +88,14 @@ class OptimizerEngine {
         }
 
         const shouldRecreateProber =
-            patch.mockMode !== undefined || patch.probeHost !== undefined || patch.probePort !== undefined;
+            patch.mockMode !== undefined || patch.probeHost !== undefined || patch.probePort !== undefined || patch.timeoutMs !== undefined;
 
         if (shouldRecreateProber) {
             this.prober = new Prober({
                 mockMode: this.control.mockMode,
                 probeHost: this.control.probeHost,
                 probePort: this.control.probePort,
+                timeoutMs: this.control.timeoutMs,
             });
             console.log(`[optimizer] prober updated, native=${this.prober.usingNative}`);
         }
@@ -188,6 +192,38 @@ function pushEvents(snapshot: OptimizerSnapshot): void {
 // ---------- REST ----------
 app.get("/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
+});
+
+app.get("/config", (_req, res) => {
+    const control = engine.getControlState();
+    res.json({
+        autoSwitch: control.mode === "auto",
+        preferredProtocol: control.manualProtocol || "http2",
+        probeInterval: control.intervalMs,
+        timeout: control.timeoutMs,
+        turboMode: control.turboMode,
+    });
+});
+
+app.post("/config", (req, res) => {
+    const { autoSwitch, preferredProtocol, probeInterval, timeout, turboMode } = req.body;
+    
+    engine.updateControl({
+        mode: autoSwitch ? "auto" : "manual",
+        manualProtocol: autoSwitch ? undefined : preferredProtocol,
+        intervalMs: typeof probeInterval === "number" ? probeInterval : undefined,
+        timeoutMs: typeof timeout === "number" ? timeout : undefined,
+        turboMode: typeof turboMode === "boolean" ? turboMode : undefined,
+    });
+
+    const control = engine.getControlState();
+    res.json({
+        autoSwitch: control.mode === "auto",
+        preferredProtocol: control.manualProtocol || "http2",
+        probeInterval: control.intervalMs,
+        timeout: control.timeoutMs,
+        turboMode: control.turboMode,
+    });
 });
 
 app.get("/snapshot", (_req, res) => {

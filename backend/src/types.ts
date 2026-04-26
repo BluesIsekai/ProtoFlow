@@ -50,6 +50,8 @@ export interface ControlState {
     probePort: number;
     intervalMs: number;
     mockMode: boolean;
+    timeoutMs: number;
+    turboMode: boolean;
 
     trafficType: TrafficType;
 }
