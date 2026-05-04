@@ -2,9 +2,9 @@
 
 🚀 Multi-protocol traffic intelligence for modern desktop workflows.
 
-![GitHub stars](https://img.shields.io/github/stars/CN-2026-IIITA/ProtoFlow?style=for-the-badge)
-![GitHub issues](https://img.shields.io/github/issues/CN-2026-IIITA/ProtoFlow?style=for-the-badge)
-![GitHub license](https://img.shields.io/github/license/CN-2026-IIITA/ProtoFlow?style=for-the-badge)
+![GitHub stars](https://img.shields.io/github/stars/CN-2026-IIITA/ProtoFlow?style=for-the-badge&cacheSeconds=40)
+![GitHub issues](https://img.shields.io/github/issues/CN-2026-IIITA/ProtoFlow?style=for-the-badge&cacheSeconds=40)
+![GitHub license](https://img.shields.io/github/license/CN-2026-IIITA/ProtoFlow?style=for-the-badge&cacheSeconds=40)
 
 ## 🔍 Preview
 
